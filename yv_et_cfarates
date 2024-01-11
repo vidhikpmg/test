@@ -1,0 +1,28 @@
+-- Table: pricing_tool.yv_et_cfarates
+
+-- DROP TABLE IF EXISTS pricing_tool.yv_et_cfarates;
+
+CREATE TABLE IF NOT EXISTS pricing_tool.yv_et_cfarates
+(
+    id bigint NOT NULL,
+    aedat timestamp without time zone,
+    aenam character varying(255) COLLATE pg_catalog."default",
+    aezet character varying(255) COLLATE pg_catalog."default",
+    erdat timestamp without time zone,
+    ernam character varying(255) COLLATE pg_catalog."default",
+    erzet character varying(255) COLLATE pg_catalog."default",
+    mandt character varying(255) COLLATE pg_catalog."default",
+    outsidestate character varying(255) COLLATE pg_catalog."default",
+    rateuom character varying(255) COLLATE pg_catalog."default",
+    remarks character varying(255) COLLATE pg_catalog."default",
+    slab_from_km character varying(255) COLLATE pg_catalog."default",
+    slab_to_km character varying(255) COLLATE pg_catalog."default",
+    vstel character varying(255) COLLATE pg_catalog."default",
+    yytenderno character varying(255) COLLATE pg_catalog."default",
+    CONSTRAINT yv_et_cfarates_pkey PRIMARY KEY (id)
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS pricing_tool.yv_et_cfarates
+    OWNER to pricing_tool_admin;
