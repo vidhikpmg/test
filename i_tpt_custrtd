@@ -1,0 +1,43 @@
+-- Table: pricing_tool.i_tpt_custrtd
+
+-- DROP TABLE IF EXISTS pricing_tool.i_tpt_custrtd;
+
+CREATE TABLE IF NOT EXISTS pricing_tool.i_tpt_custrtd
+(
+    id bigint NOT NULL,
+    aedat character varying(255) COLLATE pg_catalog."default",
+    aenam character varying(255) COLLATE pg_catalog."default",
+    aezet character varying(255) COLLATE pg_catalog."default",
+    approval_ref character varying(255) COLLATE pg_catalog."default",
+    begda character varying(255) COLLATE pg_catalog."default",
+    change_ref character varying(255) COLLATE pg_catalog."default",
+    destcluster character varying(255) COLLATE pg_catalog."default",
+    dist_h character varying(255) COLLATE pg_catalog."default",
+    dist_hh character varying(255) COLLATE pg_catalog."default",
+    dist_p character varying(255) COLLATE pg_catalog."default",
+    endda character varying(255) COLLATE pg_catalog."default",
+    erdat character varying(255) COLLATE pg_catalog."default",
+    ernam character varying(255) COLLATE pg_catalog."default",
+    erzet character varying(255) COLLATE pg_catalog."default",
+    fdz_ind character varying(255) COLLATE pg_catalog."default",
+    geo_rtd character varying(255) COLLATE pg_catalog."default",
+    kunwe character varying(255) COLLATE pg_catalog."default",
+    levi_oneway character varying(255) COLLATE pg_catalog."default",
+    levi_twoway character varying(255) COLLATE pg_catalog."default",
+    mandt character varying(255) COLLATE pg_catalog."default",
+    rtdstatus character varying(255) COLLATE pg_catalog."default",
+    ship_state character varying(255) COLLATE pg_catalog."default",
+    shpt_bottom_load character varying(255) COLLATE pg_catalog."default",
+    shpt_state character varying(255) COLLATE pg_catalog."default",
+    vehcap_ind character varying(255) COLLATE pg_catalog."default",
+    vstel character varying(255) COLLATE pg_catalog."default",
+    createddate timestamp without time zone,
+    is_active boolean,
+    modifieddate timestamp without time zone,
+    CONSTRAINT i_tpt_custrtd_pkey PRIMARY KEY (id)
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS pricing_tool.i_tpt_custrtd
+    OWNER to pricing_tool_admin;
