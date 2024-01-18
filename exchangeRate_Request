@@ -1,0 +1,11 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://www.kpmg.in/iocl/api">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <api:ExchangeRateRequest>
+         <api:from_currency>?</api:from_currency>
+         <api:to_currency>?</api:to_currency>
+         <api:exchange_type>?</api:exchange_type>
+         <api:effective_date>?</api:effective_date>
+      </api:ExchangeRateRequest>
+   </soapenv:Body>
+</soapenv:Envelope>
