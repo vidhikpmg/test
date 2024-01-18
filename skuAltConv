@@ -1,0 +1,12 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sku="http://www.kpmg.in/iocl/SKUapi">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <sku:Sku_alt_conversionRequest>
+         <sku:materialNo>?</sku:materialNo>
+         <sku:baseUnitOfMeasure>?</sku:baseUnitOfMeasure>
+         <sku:unitOfMeasureDisplay>?</sku:unitOfMeasureDisplay>
+         <sku:numeratorConversion>?</sku:numeratorConversion>
+         <sku:denominatorConversion>?</sku:denominatorConversion>
+      </sku:Sku_alt_conversionRequest>
+   </soapenv:Body>
+</soapenv:Envelope>
