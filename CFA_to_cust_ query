@@ -1,0 +1,7 @@
+SELECT  mt.cfa,'By Land' AS shipping_condition, tp.kunwe, cast(cf.rateuom as decimal) /1000
+			FROM pricing_tool.i_tpt_custrtd tp, pricing_tool.zst_lu_plant_mattyp as mt, 
+			pricing_tool.yv_et_cfarates cf
+			WHERE mt.cfa = cf.vstel and mt.cfa = tp.vstel  and
+			tp.dist_p between cf.slab_from_km and cf.slab_to_km
+			and to_char(CURRENT_DATE, 'YYYY-MM-DD') Between tp.begda and tp.endda
+			Order By Date(cf.aedat), cf.aezet DESC Limit 1
