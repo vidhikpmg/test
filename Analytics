@@ -1,0 +1,6 @@
+select ekko.matnr, ekko.werks, ekko.ebeln,ekko.ebelp, ekko.bsart, ekko.mtart, ekko.aedat, ekko.loekz 
+from pricing_tool.ym_po_det_rfc_ho_lubes as ekko 
+where ekko.bsart in ('WK', 'MK') and ekko.mtart in ('ADDT')
+and ekko.werks in (select plant from pricing_tool.zst_lu_plant_mattyp where material_type = 'ADDT') 
+and ekko.bstyp = 'K' and (ekko.aedat between '2022-03-10' and '2022-06-30') and 
+(ekko.loekz is null or ekko.loekz = '')
