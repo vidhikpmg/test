@@ -5,3 +5,13 @@ SELECT  mt.cfa,'By Land' AS shipping_condition, tp.kunwe, cast(cf.rateuom as dec
 			tp.dist_p between cf.slab_from_km and cf.slab_to_km
 			and to_char(CURRENT_DATE, 'YYYY-MM-DD') Between tp.begda and tp.endda
 			Order By Date(cf.aedat), cf.aezet DESC Limit 1
+
+SELECT mt.cfa,'By Land' AS delivery_mode, tp.kunwe, cf.rateuom
+	FROM pricing_tool.i_tpt_custrtd tp, pricing_tool.zst_lu_plant_mattyp as mt, 
+	pricing_tool.yv_et_cfarates cf
+	WHERE tp.vstel = mt.cfa and cf.vstel = mt.cfa
+	and cast(tp.dist_p as decimal) between cast(cf.slab_from_km as decimal) 
+	and cast(cf.slab_to_km as decimal) 
+	and to_char(CURRENT_DATE,'YYYY-MM-DD') between tp.begda and tp.endda
+	-- and tp.kunwe NOT LIKE 'ZC%'
+	group by mt.cfa, tp.kunwe, cf.rateuom
