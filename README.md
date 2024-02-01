@@ -16,9 +16,9 @@ git push -u origin main
 
 #push code to git from local
 git init
-git checkout -b "iocl_lubes_dev_merge"
+git checkout -b "iocl_lubes_dev_merge" (branch name)
 git add .
 git commit -m "Merge IOCL lubes"
 git remote add origin https://github.com/ShinjanSardarBeas/Kpmg-iocl.git
-git push origin iocl_lubes_dev_merge
+git push origin iocl_lubes_dev_merge (branch name)
 
