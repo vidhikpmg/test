@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS pricing_tool.formulation_cost_addt_import
+(
+    import_cost_id bigint NOT NULL DEFAULT nextval('pricing_tool.formulation_cost_addt_import_import_cost_id_seq'::regclass),
+    material_code character varying COLLATE pg_catalog."default",
+    blending_plant character varying COLLATE pg_catalog."default",
+    cost numeric,
+    uom character varying COLLATE pg_catalog."default",
+    currency character varying COLLATE pg_catalog."default",
+    valid_from date,
+    valid_to date,
+    created_on date,
+    CONSTRAINT formulation_cost_addt_import_pkey PRIMARY KEY (import_cost_id)
+)
