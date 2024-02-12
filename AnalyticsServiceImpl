@@ -1,0 +1,503 @@
+package com.iocl.analytics.serviceimpl;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.iocl.analytics.constant.AnalyticsConstant;
+import com.iocl.analytics.dest.entity.CostAddTDomestic;
+import com.iocl.analytics.dest.entity.PackagingCost;
+import com.iocl.analytics.dest.entity.PoCompetitors;
+import com.iocl.analytics.dest.entity.PoImport;
+import com.iocl.analytics.dest.repo.SendDataToAnalytics;
+import com.iocl.analytics.dest.repo.SendPackageDataToAnalytics;
+import com.iocl.analytics.dest.repo.SendPoCompetitorsDataToAnalytics;
+import com.iocl.analytics.dest.repo.SendPoImportDataToAnalytics;
+import com.iocl.analytics.dto.AnalyticsDataDto;
+import com.iocl.analytics.dto.PackagingCostDto;
+import com.iocl.analytics.dto.PoCompetitorsDto;
+import com.iocl.analytics.dto.PoImportsDto;
+import com.iocl.analytics.repo.AnalyticsRepo;
+import com.iocl.analytics.service.AnalyticsServices;
+import com.iocl.analytics.source.entity.AddtPoEntity;
+import com.iocl.analytics.util.GetDate;
+
+@Service
+public class AnalyticsServicesImpl implements AnalyticsServices {
+	private static final Logger logger = LogManager.getLogger(AnalyticsServicesImpl.class);
+	@Autowired
+	AnalyticsRepo analyticsRepo;
+	@Autowired
+	SendDataToAnalytics sendDataToAnalytics;
+	@Autowired
+	SendPackageDataToAnalytics sendPckDataToAnalytics;
+
+	@Autowired
+	SendPoImportDataToAnalytics sendPoImportDataToAnalytics;
+
+	@Autowired
+	SendPoCompetitorsDataToAnalytics sendPoCompetitorsDataToAnalytics;
+
+	@Override
+	public List<AnalyticsDataDto> getDataFromHois() {
+
+		// TODO Auto-generated method stub
+		AnalyticsDataDto analyticsDataDto = null;
+		List<AnalyticsDataDto> analyticsDataDtoList = new ArrayList<>();
+		AddtPoEntity agrements = null;
+		double rate = 0;
+		double quantity = 0;
+		double amount = 0;
+
+		GetDate getDate = new GetDate();
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+//			Map<String, String> prevStartAndEndDayMap = getDate.previuosMonthDateMap();
+
+//			String start_date = prevStartAndEndDayMap.get(AnalyticsConstant.START_DATE_OF_PREV_MONTH);
+//			String end_date = prevStartAndEndDayMap.get(AnalyticsConstant.END_DATE_OF_PREV_MONTH);
+
+			String start_date = "2022-12-01";
+			String end_date = "2023-12-31";
+
+			List<String> plantList = analyticsRepo.getPlantsByMaterialType(AnalyticsConstant.MATERIAL_TYPE);
+			// List<AddtPoEntity> dataList = analyticsRepo.getDataListFromHois(plantList,
+			// AnalyticsConstant.BSART_LIST);
+			logger.info("plant List :: " + plantList.size());
+			List<AddtPoEntity> dataList = analyticsRepo.getDataListFromHois(plantList, AnalyticsConstant.MATERIAL_TYPE,
+					AnalyticsConstant.BSART_LIST, AnalyticsConstant.BSTYP_CONTRACT, start_date, end_date);
+
+			Map<String, String> startAndEndDayMap = getDate.neaxtMonthDateMap();
+			SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+			logger.info("data List :: " + mapper.writeValueAsString(dataList));
+			for (AddtPoEntity poEntity : dataList) {
+				analyticsDataDto = new AnalyticsDataDto();
+
+				List<String> getCurrency = analyticsRepo.currencyList(poEntity.getEbeln(), PageRequest.of(0, 1));
+				if (getCurrency != null && getCurrency.size() > 0) {
+					analyticsDataDto.setCurrency(getCurrency.get(0));
+				}
+
+				analyticsDataDto.setValid_from(
+						dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.START_DATE_OF_NEXT_MONTH)));
+				analyticsDataDto
+						.setValid_to(dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.END_DATE_OF_NEXT_MONTH)));
+
+				analyticsDataDto.setProduct_code(poEntity.getMatnr());
+				analyticsDataDto.setBlending_plant(poEntity.getWerks());
+				analyticsDataDto.setDoc_no(poEntity.getEbeln());
+				analyticsDataDto.setItem_no(poEntity.getEbelp());
+
+//				List<AddtPoEntity> agrementList = analyticsRepo.getAgreement(poEntity.getEbeln(), poEntity.getEbelp());
+//				logger.info("agrementList size :: " + agrementList.size());
+//				if (agrementList != null && agrementList.size() > 0) {
+//					agrements = agrementList.get(0);
+//					analyticsDataDto.setDoc_no(agrements.getEbeln());
+//					analyticsDataDto.setItem_no(agrements.getEbelp());
+//					// analyticsDataDtoList.add(analyticsDataDto);
+//				}
+
+				if (analyticsDataDto.getDoc_no() != null && analyticsDataDto.getItem_no() != null
+						&& analyticsDataDto.getProduct_code() != null && analyticsDataDto.getBlending_plant() != null) {
+
+					logger.info("quantity and amount :: " + analyticsDataDto.getDoc_no()+","+
+							analyticsDataDto.getItem_no()+","+analyticsDataDto.getProduct_code()+","+analyticsDataDto.getBlending_plant());
+
+					List<AddtPoEntity> getUomQuantiyAmtList = analyticsRepo.getUomQuantiyAmt(analyticsDataDto.getDoc_no(),
+							analyticsDataDto.getItem_no(),analyticsDataDto.getProduct_code() , analyticsDataDto.getBlending_plant() );
+					if (getUomQuantiyAmtList != null && getUomQuantiyAmtList.size() > 0) {
+
+						for (AddtPoEntity rateData : getUomQuantiyAmtList) {
+							if(rateData.getMenge() != null) {
+								quantity = quantity + Double.parseDouble(rateData.getMenge());
+							}
+							if(rateData.getWrbtr() != null) {
+								amount = amount + Double.parseDouble(rateData.getWrbtr());
+								logger.info("quantity and amount :: " + quantity + " and " + amount);
+							}
+						}
+
+						if(quantity>0 && amount>0){
+							rate = rate + (amount / quantity);
+						}
+						analyticsDataDto.setBstme_uom(getUomQuantiyAmtList.get(0).getBstme());
+						analyticsDataDto.setCost(rate);
+					}
+				}
+				analyticsDataDto.setCreated_on(dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.CURRENT_DATE)));
+				analyticsDataDtoList.add(analyticsDataDto);
+
+			}
+			logger.info("Possible date :: " + mapper.writeValueAsString(analyticsDataDtoList));
+		} catch (Exception e) {
+			logger.error("can not get data from hois analytics", e);
+		}
+		return analyticsDataDtoList;
+	}
+
+	@Override
+	public List<CostAddTDomestic> insertResultToAnalytics(List<AnalyticsDataDto> dataFromHois) {
+		CostAddTDomestic costAddTDomestic = null;
+		List<CostAddTDomestic> costAddTDomesticlist = new ArrayList<>();
+		List<CostAddTDomestic> returnlist = null;
+		try {
+			if (dataFromHois != null && dataFromHois.size() > 0) {
+				for (AnalyticsDataDto dtoData : dataFromHois) {
+					costAddTDomestic = new CostAddTDomestic();
+					BeanUtils.copyProperties(dtoData, costAddTDomestic);
+					costAddTDomesticlist.add(costAddTDomestic);
+
+				}
+				returnlist = sendDataToAnalytics.saveAll(costAddTDomesticlist);
+
+			}
+		} catch (Exception e) {
+			logger.error("can not save data to analytics :: ", e);
+
+		}
+		return returnlist;
+
+	}
+
+	@Override
+	public List<PackagingCostDto> getPackagingCostFromHois() {
+
+		GetDate getDate = new GetDate();
+		AddtPoEntity agrements = null;
+		double rate = 0;
+		double quantity = 0;
+		double amount = 0;
+		PackagingCostDto packagingCostDto = null;
+		ObjectMapper mapper = new ObjectMapper();
+		List<PackagingCostDto> packgingCostList = new ArrayList<>();
+		try {
+			List<String> plantList = analyticsRepo.getALLPlants();
+			logger.info("plant List :: " + plantList.size());
+
+//			Map<String, String> prevStartAndEndDayMap = getDate.previuosMonthDateMap();
+//			String start_date = prevStartAndEndDayMap.get(AnalyticsConstant.START_DATE_OF_PREV_MONTH);
+//			String end_date = prevStartAndEndDayMap.get(AnalyticsConstant.END_DATE_OF_PREV_MONTH);
+
+			String start_date = "2023-01-01";
+			String end_date = "2024-01-30";
+			List<AddtPoEntity> packageDataList = analyticsRepo.getPackageDataListFromHois(plantList,
+					AnalyticsConstant.PACKAGE_MATERIAL_TYPE, AnalyticsConstant.PACKAGE_MATERIAL_GRP,
+					AnalyticsConstant.BSART_LIST, start_date, end_date);
+
+			Map<String, String> startAndEndDayMap = getDate.neaxtMonthDateMap();
+			SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+			for (AddtPoEntity packageEntity : packageDataList) {
+				packagingCostDto = new PackagingCostDto();
+
+				List<String> getCurrency = analyticsRepo.currencyList(packageEntity.getEbeln(), PageRequest.of(0, 1));
+				if (getCurrency != null && getCurrency.size() > 0) {
+					packagingCostDto.setCurrency(getCurrency.get(0));
+				}
+				packagingCostDto.setValid_from(
+						dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.START_DATE_OF_NEXT_MONTH)));
+				packagingCostDto
+						.setValid_to(dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.END_DATE_OF_NEXT_MONTH)));
+
+				packagingCostDto.setPackage_material(packageEntity.getMatnr());
+				packagingCostDto.setBlending_plant(packageEntity.getWerks());
+				packagingCostDto.setDoc_no(packageEntity.getEbeln());
+				packagingCostDto.setItem_no(packageEntity.getEbelp());
+
+//				List<AddtPoEntity> agrementList = analyticsRepo.getAgreement(packageEntity.getEbeln(),
+//						packageEntity.getEbelp());
+//				logger.info("agrementList size :: " + agrementList.size());
+//				if (agrementList != null && agrementList.size() > 0) {
+//					agrements = agrementList.get(0);
+//					packagingCostDto.setDoc_no(agrements.getEbeln());
+//					packagingCostDto.setItem_no(agrements.getEbelp());
+//					// analyticsDataDtoList.add(analyticsDataDto);
+//				}
+				packagingCostDto.setCreated_on(dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.CURRENT_DATE)));
+				if (packagingCostDto.getDoc_no() != null && packagingCostDto.getItem_no() != null
+						&& packagingCostDto.getPackage_material() != null
+						&& packagingCostDto.getBlending_plant() != null) {
+
+					List<AddtPoEntity> getUomQuantiyAmtList = analyticsRepo.getUomQuantiyAmt(
+							packagingCostDto.getDoc_no(), packagingCostDto.getItem_no(),
+							packagingCostDto.getPackage_material(), packagingCostDto.getBlending_plant());
+					if (getUomQuantiyAmtList != null && getUomQuantiyAmtList.size() > 0) {
+						for (AddtPoEntity rateData : getUomQuantiyAmtList) {
+							if(rateData.getMenge() != null) {
+								quantity = quantity + Double.parseDouble(rateData.getMenge());
+							}
+							if(rateData.getWrbtr() != null) {
+								amount = amount + Double.parseDouble(rateData.getWrbtr());
+								logger.info("quantity and amount :: " + quantity + " and " + amount);
+							}
+							logger.info("quantity and amount :: " + quantity + " and " + amount);
+						}
+						if(quantity>0 && amount>0) {
+							rate = rate + (amount / quantity);
+						}
+						packagingCostDto.setBstme_uom(getUomQuantiyAmtList.get(0).getBstme());
+						packagingCostDto.setCost(rate);
+					}
+				}
+				packgingCostList.add(packagingCostDto);
+
+			}
+			logger.info("Possible package date :: " + mapper.writeValueAsString(packgingCostList));
+		} catch (Exception e) {
+			logger.error("unable to fetch package cost data from hois", e);
+		}
+		return packgingCostList;
+	}
+
+	@Override
+	public List<PackagingCost> insertCostResultToAnalytics(List<PackagingCostDto> costDataList) {
+		PackagingCost packCost = null;
+		List<PackagingCost> packagingCostlist = new ArrayList<>();
+		List<PackagingCost> returnlist = null;
+		try {
+			if (costDataList != null && costDataList.size() > 0) {
+				for (PackagingCostDto dtoData : costDataList) {
+					packCost = new PackagingCost();
+					BeanUtils.copyProperties(dtoData, packCost);
+					packagingCostlist.add(packCost);
+
+				}
+				returnlist = sendPckDataToAnalytics.saveAll(packagingCostlist);
+
+			}
+		} catch (Exception e) {
+			logger.error("can not save data to analytics :: ", e);
+
+		}
+		return returnlist;
+
+	}
+
+	@Override
+	public List<PoImportsDto> getPoImportsCostFromHois() {
+		GetDate getDate = new GetDate();
+		double rate = 0;
+		double quantity = 0;
+		double amount = 0;
+		PoImportsDto poImportsDto = null;
+		ObjectMapper mapper = new ObjectMapper();
+		List<PoImportsDto> poiCostList = new ArrayList<>();
+		try {
+			List<String> plantList = analyticsRepo.getPlantsByMaterialType(AnalyticsConstant.MATERIAL_TYPE_BASE); // MATERIAL_TYPE
+			logger.info("plant List :: " + plantList.size());
+
+//			Map<String, String> prevStartAndEndDayMap = getDate.previuosMonthDateMap();
+//			String start_date = prevStartAndEndDayMap.get(AnalyticsConstant.START_DATE_OF_PREV_MONTH);
+//			String end_date = prevStartAndEndDayMap.get(AnalyticsConstant.END_DATE_OF_PREV_MONTH);
+
+			String start_date = "2023-01-01";
+			String end_date = "2024-01-01";
+			List<AddtPoEntity> poiDataList = analyticsRepo.getPoiDataListFromHois(plantList,
+					AnalyticsConstant.MATERIAL_TYPE_BASE, AnalyticsConstant.BSART_LIST_PO, start_date, end_date);
+
+			Map<String, String> startAndEndDayMap = getDate.neaxtMonthDateMap();
+			SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+			for (AddtPoEntity poiEntity : poiDataList) {
+				poImportsDto = new PoImportsDto();
+
+				List<String> getCurrency = analyticsRepo.currencyList(poiEntity.getEbeln(), PageRequest.of(0, 1));
+				if (getCurrency != null && getCurrency.size() > 0) {
+					poImportsDto.setCurrency(getCurrency.get(0));
+				}
+				poImportsDto.setValid_from(
+						dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.START_DATE_OF_NEXT_MONTH)));
+				poImportsDto
+						.setValid_to(dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.END_DATE_OF_NEXT_MONTH)));
+
+				poImportsDto.setProduct_code(poiEntity.getMatnr());
+				poImportsDto.setBlending_plant(poiEntity.getWerks());
+
+				poImportsDto.setDoc_no(poiEntity.getEbeln());
+				poImportsDto.setItem_no(poiEntity.getEbelp());
+				// analyticsDataDtoList.add(analyticsDataDto);
+
+				poImportsDto.setCreated_on(dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.CURRENT_DATE)));
+
+				if (poImportsDto.getDoc_no() != null && poImportsDto.getItem_no() != null
+						&& poImportsDto.getProduct_code() != null && poImportsDto.getBlending_plant() != null) {
+
+					List<AddtPoEntity> getUomQuantiyAmtList = analyticsRepo.getUomQuantiyAmt(poImportsDto.getDoc_no(),
+							poImportsDto.getItem_no(), poImportsDto.getProduct_code(),
+							poImportsDto.getBlending_plant());
+					if (getUomQuantiyAmtList != null && getUomQuantiyAmtList.size() > 0) {
+						for (AddtPoEntity rateData : getUomQuantiyAmtList) {
+							if(rateData.getMenge() != null) {
+								quantity = quantity + Double.parseDouble(rateData.getMenge());
+							}
+							if(rateData.getWrbtr() != null) {
+								amount = amount + Double.parseDouble(rateData.getWrbtr());
+							}
+							logger.info("quantity and amount :: " + quantity + " and " + amount);
+						}
+						if(quantity>0 && amount>0) {
+							rate = rate + (amount / quantity);
+						}
+						poImportsDto.setBstme_uom(getUomQuantiyAmtList.get(0).getBstme());
+						poImportsDto.setCost(rate);
+					}
+				}
+				poiCostList.add(poImportsDto);
+
+			}
+			logger.info("Possible package date :: " + mapper.writeValueAsString(poiCostList));
+		} catch (Exception e) {
+			logger.error("unable to fetch package cost data from hois", e);
+		}
+		return poiCostList;
+	}
+
+	@Override
+	public List<PoImport> insertPoiCostResultToAnalytics(List<PoImportsDto> poiCostDataList) {
+
+		PoImport poImport = null;
+		List<PoImport> poiCostlist = new ArrayList<>();
+		List<PoImport> returnlist = null;
+		try {
+			if (poiCostDataList != null && poiCostDataList.size() > 0) {
+				for (PoImportsDto poiDtoData : poiCostDataList) {
+					poImport = new PoImport();
+					BeanUtils.copyProperties(poiDtoData, poImport);
+					poiCostlist.add(poImport);
+
+				}
+				returnlist = sendPoImportDataToAnalytics.saveAll(poiCostlist);
+
+			}
+		} catch (Exception e) {
+			logger.error("can not save data to analytics :: ", e);
+
+		}
+		return returnlist;
+	}
+
+	@Override
+	public List<PoCompetitorsDto> getPoCompititorsacostDataFromHois() {
+
+		// TODO Auto-generated method stub
+		PoCompetitorsDto poCompetitorsDto = null;
+		List<PoCompetitorsDto> poCompetitorsDtoList = new ArrayList<>();
+		AddtPoEntity agrements = null;
+		double rate = 0;
+		double quantity = 0;
+		double amount = 0;
+
+		GetDate getDate = new GetDate();
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+//			Map<String, String> prevStartAndEndDayMap = getDate.previuosMonthDateMap();
+
+//			String start_date = prevStartAndEndDayMap.get(AnalyticsConstant.START_DATE_OF_PREV_MONTH);
+//			String end_date = prevStartAndEndDayMap.get(AnalyticsConstant.END_DATE_OF_PREV_MONTH);
+
+			String start_date = "2023-01-01";
+			String end_date = "2024-01-01";
+
+			List<String> plantList = analyticsRepo.getPlantsByMaterialType(AnalyticsConstant.MATERIAL_TYPE_BASE);
+			// List<AddtPoEntity> dataList = analyticsRepo.getDataListFromHois(plantList,
+			// AnalyticsConstant.BSART_LIST);
+			logger.info("plant List :: " + plantList.size());
+			List<AddtPoEntity> dataList = analyticsRepo.getDataListFromHois(plantList,
+					AnalyticsConstant.MATERIAL_TYPE_BASE, AnalyticsConstant.BSART_LIST,
+					AnalyticsConstant.BSTYP_CONTRACT, start_date, end_date);
+
+			Map<String, String> startAndEndDayMap = getDate.neaxtMonthDateMap();
+			SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+			logger.info("data List :: " + mapper.writeValueAsString(dataList));
+			for (AddtPoEntity poEntity : dataList) {
+				poCompetitorsDto = new PoCompetitorsDto();
+
+				List<String> getCurrency = analyticsRepo.currencyList(poEntity.getEbeln(), PageRequest.of(0, 1));
+				if (getCurrency != null && getCurrency.size() > 0) {
+					poCompetitorsDto.setCurrency(getCurrency.get(0));
+				}
+
+				poCompetitorsDto.setValid_from(
+						dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.START_DATE_OF_NEXT_MONTH)));
+				poCompetitorsDto
+						.setValid_to(dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.END_DATE_OF_NEXT_MONTH)));
+
+				poCompetitorsDto.setProduct_code(poEntity.getMatnr());
+				poCompetitorsDto.setBlending_plant(poEntity.getWerks());
+				poCompetitorsDto.setDoc_no(poEntity.getEbeln());
+				poCompetitorsDto.setItem_no(poEntity.getEbelp());
+
+//				List<AddtPoEntity> agrementList = analyticsRepo.getAgreement(poEntity.getEbeln(), poEntity.getEbelp());
+//				logger.info("agrementList size :: " + agrementList.size());
+//				if (agrementList != null && agrementList.size() > 0) {
+//					agrements = agrementList.get(0);
+//					poCompetitorsDto.setDoc_no(agrements.getEbeln());
+//					poCompetitorsDto.setItem_no(agrements.getEbelp());
+//					// analyticsDataDtoList.add(analyticsDataDto);
+//				}
+
+				if (poCompetitorsDto.getDoc_no() != null && poCompetitorsDto.getItem_no() != null
+						&& poCompetitorsDto.getProduct_code() != null && poCompetitorsDto.getBlending_plant() != null) {
+
+					List<AddtPoEntity> getUomQuantiyAmtList = analyticsRepo.getUomQuantiyAmt(
+							poCompetitorsDto.getDoc_no(), poCompetitorsDto.getItem_no(),
+							poCompetitorsDto.getProduct_code(), poCompetitorsDto.getBlending_plant());
+					if (getUomQuantiyAmtList != null && getUomQuantiyAmtList.size() > 0) {
+						for (AddtPoEntity rateData : getUomQuantiyAmtList) {
+							if(rateData.getMenge()!= null) {
+								quantity = quantity + Double.parseDouble(rateData.getMenge());
+							}
+							if(rateData.getWrbtr()!= null) {
+								amount = amount + Double.parseDouble(rateData.getWrbtr());
+							}
+							logger.info("quantity and amount :: " + quantity + " and " + amount);
+						}
+						if(quantity > 0 && amount>0) {
+							rate = rate + (amount / quantity);
+						}
+						poCompetitorsDto.setBstme_uom(getUomQuantiyAmtList.get(0).getBstme());
+						poCompetitorsDto.setCost(rate);
+					}
+				}
+				poCompetitorsDto.setCreated_on(dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.CURRENT_DATE)));
+				poCompetitorsDtoList.add(poCompetitorsDto);
+
+			}
+			logger.info("Possible date :: " + mapper.writeValueAsString(poCompetitorsDtoList));
+		} catch (Exception e) {
+			logger.error("can not get data from hois analytics", e);
+		}
+		return poCompetitorsDtoList;
+	}
+
+	@Override
+	public List<PoCompetitors> insertPocCostResultToAnalytics(List<PoCompetitorsDto> pocCostDataList) {
+		PoCompetitors poCompetitors = null;
+		List<PoCompetitors> pocCostlist = new ArrayList<>();
+		List<PoCompetitors> returnlist = null;
+		try {
+			if (pocCostDataList != null && pocCostDataList.size() > 0) {
+				for (PoCompetitorsDto pocDtoData : pocCostDataList) {
+					poCompetitors = new PoCompetitors();
+					BeanUtils.copyProperties(pocDtoData, poCompetitors);
+					pocCostlist.add(poCompetitors);
+
+				}
+				returnlist = sendPoCompetitorsDataToAnalytics.saveAll(pocCostlist);
+
+			}
+		} catch (Exception e) {
+			logger.error("can not save data to analytics :: ", e);
+
+		}
+		return returnlist;
+	}
+
+}
