@@ -18,14 +18,17 @@ import com.iocl.analytics.dest.entity.CostAddTDomestic;
 import com.iocl.analytics.dest.entity.PackagingCost;
 import com.iocl.analytics.dest.entity.PoCompetitors;
 import com.iocl.analytics.dest.entity.PoImport;
+import com.iocl.analytics.dest.entity.CostAddTImport;
 import com.iocl.analytics.dest.repo.SendDataToAnalytics;
 import com.iocl.analytics.dest.repo.SendPackageDataToAnalytics;
 import com.iocl.analytics.dest.repo.SendPoCompetitorsDataToAnalytics;
 import com.iocl.analytics.dest.repo.SendPoImportDataToAnalytics;
+import com.iocl.analytics.dest.repo.SendAddtImportsDataToAnalytics;
 import com.iocl.analytics.dto.AnalyticsDataDto;
 import com.iocl.analytics.dto.PackagingCostDto;
 import com.iocl.analytics.dto.PoCompetitorsDto;
 import com.iocl.analytics.dto.PoImportsDto;
+import com.iocl.analytics.dto.AddtPoImportsDto;
 import com.iocl.analytics.repo.AnalyticsRepo;
 import com.iocl.analytics.service.AnalyticsServices;
 import com.iocl.analytics.source.entity.AddtPoEntity;
@@ -46,6 +49,9 @@ public class AnalyticsServicesImpl implements AnalyticsServices {
 
 	@Autowired
 	SendPoCompetitorsDataToAnalytics sendPoCompetitorsDataToAnalytics;
+	
+	@Autowired
+	SendAddtImportsDataToAnalytics sendAddtImportsDataToAnalytics;
 
 	@Override
 	public List<AnalyticsDataDto> getDataFromHois() {
@@ -500,4 +506,102 @@ public class AnalyticsServicesImpl implements AnalyticsServices {
 		return returnlist;
 	}
 
+	@Override
+	public List<AddtPoImportsDto> getAddtPoImportsFromHois() {
+		GetDate getDate = new GetDate();
+		double rate = 0;
+		double quantity = 0;
+		double amount = 0;
+		AddtPoImportsDto poImportsDto = null;
+		ObjectMapper mapper = new ObjectMapper();
+		List<AddtPoImportsDto> poiCostList = new ArrayList<>();
+		try {
+			List<String> plantList = analyticsRepo.getPlantsByMaterialType(AnalyticsConstant.MATERIAL_TYPE); // MATERIAL_TYPE
+			logger.info("plant List :: " + plantList.size());
+
+//			Map<String, String> prevStartAndEndDayMap = getDate.previuosMonthDateMap();
+//			String start_date = prevStartAndEndDayMap.get(AnalyticsConstant.START_DATE_OF_PREV_MONTH);
+//			String end_date = prevStartAndEndDayMap.get(AnalyticsConstant.END_DATE_OF_PREV_MONTH);
+
+			String start_date = "2023-01-01";
+			String end_date = "2024-01-01";
+			List<AddtPoEntity> poiDataList = analyticsRepo.getPoiDataListFromHois(plantList,
+					AnalyticsConstant.MATERIAL_TYPE, AnalyticsConstant.BSART_LIST_PO, start_date, end_date);
+
+			Map<String, String> startAndEndDayMap = getDate.neaxtMonthDateMap();
+			SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+			for (AddtPoEntity poiEntity : poiDataList) {
+				poImportsDto = new AddtPoImportsDto();
+
+				List<String> getCurrency = analyticsRepo.currencyList(poiEntity.getEbeln(), PageRequest.of(0, 1));
+				if (getCurrency != null && getCurrency.size() > 0) {
+					poImportsDto.setCurrency(getCurrency.get(0));
+				}
+				poImportsDto.setValid_from(
+						dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.START_DATE_OF_NEXT_MONTH)));
+				poImportsDto
+						.setValid_to(dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.END_DATE_OF_NEXT_MONTH)));
+
+				poImportsDto.setMaterial_code(poiEntity.getMatnr());
+				poImportsDto.setBlending_plant(poiEntity.getWerks());
+
+				poImportsDto.setDoc_no(poiEntity.getEbeln());
+				poImportsDto.setItem_no(poiEntity.getEbelp());
+				// analyticsDataDtoList.add(analyticsDataDto);
+
+				poImportsDto.setCreated_on(dateFormat.parse(startAndEndDayMap.get(AnalyticsConstant.CURRENT_DATE)));
+
+				if (poImportsDto.getDoc_no() != null && poImportsDto.getItem_no() != null
+						&& poImportsDto.getMaterial_code() != null && poImportsDto.getBlending_plant() != null) {
+
+					List<AddtPoEntity> getUomQuantiyAmtList = analyticsRepo.getUomQuantiyAmt(poImportsDto.getDoc_no(),
+							poImportsDto.getItem_no(), poImportsDto.getMaterial_code(),
+							poImportsDto.getBlending_plant());
+					if (getUomQuantiyAmtList != null && getUomQuantiyAmtList.size() > 0) {
+						for (AddtPoEntity rateData : getUomQuantiyAmtList) {
+							if(rateData.getMenge() != null && rateData.getMenge().length()>0)
+								quantity = quantity + Double.parseDouble(rateData.getMenge());
+							if(rateData.getWrbtr() != null && rateData.getWrbtr().length()>0)
+								amount = amount + Double.parseDouble(rateData.getWrbtr());
+							logger.info("quantity and amount :: " + quantity + " and " + amount);
+						}
+						if(amount>0 && quantity>0)
+							rate = rate + (amount / quantity);
+						poImportsDto.setBstme_uom(getUomQuantiyAmtList.get(0).getBstme());
+						poImportsDto.setCost(rate);
+					}
+				}
+				poiCostList.add(poImportsDto);
+
+			}
+			logger.info("Possible ADDT imports PO package data :: " + mapper.writeValueAsString(poiCostList));
+		} catch (Exception e) {
+			logger.error("unable to fetch package cost data from hois", e);
+		}
+		return poiCostList;
+	}
+
+	@Override
+	public List<CostAddTImport> insertAddtPoiImportResultToAnalytics(List<AddtPoImportsDto> poiCostDataList) {
+
+		CostAddTImport poImport = null;
+		List<CostAddTImport> poiCostlist = new ArrayList<>();
+		List<CostAddTImport> returnlist = null;
+		try {
+			if (poiCostDataList != null && poiCostDataList.size() > 0) {
+				for (AddtPoImportsDto poiDtoData : poiCostDataList) {
+					poImport = new CostAddTImport();
+					BeanUtils.copyProperties(poiDtoData, poImport);
+					poiCostlist.add(poImport);
+
+				}
+				returnlist = sendAddtImportsDataToAnalytics.saveAll(poiCostlist);
+
+			}
+		} catch (Exception e) {
+			logger.error("can not save data to analytics :: ", e);
+
+		}
+		return returnlist;
+	}
 }
